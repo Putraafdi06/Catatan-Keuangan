@@ -44,7 +44,7 @@ main{max-width:1000px;margin:0 auto;padding:20px 16px 40px}
 .stat .ic{width:30px;height:30px;border-radius:8px;background:var(--chip);display:grid;place-items:center;margin-bottom:10px}
 .stat small{display:block;font-size:12px;font-weight:600}.stat b{font-size:20px;display:block;margin-top:4px;overflow-wrap:anywhere}
 .two{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-bottom:14px}
-.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .hrow span{font-size:12px;color:var(--mut)}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fg .w{grid-column:1/-1}
 .bt{display:flex;gap:8px;margin-top:4px}
@@ -138,7 +138,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px}
   </section>
 
   <div class="card">
-    <div class="hrow"><h2>Riwayat Transaksi</h2><div class="acts"><select id="fm" style="width:auto"></select></div></div>
+    <div class="hrow"><h2>Riwayat Transaksi</h2><div class="acts"><select id="fm" style="width:auto"></select><button class="btn soft" id="bCsv">Ekspor CSV</button></div></div>
     <div class="sum" id="arc"></div>
     <div class="tw"><table>
       <thead><tr><th>TANGGAL</th><th>KATEGORI</th><th>KETERANGAN</th><th>JENIS</th><th>JUMLAH</th><th></th></tr></thead>
@@ -154,7 +154,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px}
 var SB_URL='https://apdjiouxoyeyodrliqhc.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZGppb3V4b3lleW9kcmxpcWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0Njg3MjgsImV4cCI6MjEwNzA0NDcyOH0.u9YnZPX3v0Z79jTXSdrzBbU463XgBZyLUM1vGozuc2U';
 var sb=supabase.createClient(SB_URL,SB_KEY);
-var LS='keuangan-v1', S={tx:[],targets:[]}, uid=null, saving=false, recovering=/type=recovery/.test(location.hash);
+var LS='keuangan-v1', S={tx:[],targets:[]}, uid=null, saving=false, viewList=[], viewKey='all', recovering=/type=recovery/.test(location.hash);
 var $=function(i){return document.getElementById(i)};
 var rp=function(n){return (n<0?'-':'')+'Rp'+Math.abs(Math.round(n)).toLocaleString('id-ID')};
 var JN={in:'Pemasukan',out:'Pengeluaran',sv:'Menabung',wd:'Tarik tabungan'};
@@ -255,6 +255,7 @@ function render(){
   Object.keys(mset).sort().reverse().forEach(function(k){var o=el('option',null,FULL[+k.slice(5)-1]+' '+k.slice(0,4));o.value=k;fm.appendChild(o)});
   fm.value=cur;
   var list=cur==='all'?tx:tx.filter(function(t){return t.d.slice(0,7)===cur});
+  viewList=list;viewKey=cur;
   var si=0,so=0,ss=0;list.forEach(function(t){if(t.t==='in')si+=t.a;else if(t.t==='out')so+=t.a;else if(t.t==='sv')ss+=t.a;else ss-=t.a});
   var ar=$('arc');ar.innerHTML='';
   [['Pemasukan',si,'in'],['Pengeluaran',so,'out'],['Selisih',si-so,''],['Menabung',ss,'sv']].forEach(function(p){var d=el('div',null,p[0]);d.appendChild(el('b',p[2],rp(p[1])));ar.appendChild(d)});
@@ -285,6 +286,21 @@ $('bCancel').onclick=function(){$('a').value='';$('n').value='';$('d').value=tod
 $('bAdd').onclick=function(){$('fcard').scrollIntoView({behavior:'smooth'});$('a').focus()};
 $('setT').onclick=function(){askTarget(null)};
 $('fm').onchange=render;
+$('bCsv').onclick=function(){
+  if(!viewList.length){alert('Tidak ada transaksi untuk diekspor.');return}
+  var TN={};S.targets.forEach(function(g){TN[g.id]=g.name});
+  var q=function(v){v=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
+  var rows=[['Tanggal','Jenis','Kategori','Keterangan','Jumlah'].map(q).join(';')];
+  viewList.slice().sort(function(a,b){return a.d.localeCompare(b.d)||a.id-b.id}).forEach(function(t){
+    rows.push([q(t.d),q(JN[t.t]||t.t),q((t.g&&TN[t.g])||t.c||''),q(t.n||''),t.a].join(';'));
+  });
+  var blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download='keuangan-'+(viewKey==='all'?'semua':viewKey)+'.csv';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u)},1000);
+  $('st').textContent='CSV diunduh ('+viewList.length+' transaksi).';
+};
 
 // ---- akun ----
 function msg(t){$('msg').textContent=t}
@@ -331,7 +347,7 @@ async function onSession(session){
     if(uid===session.user.id)return;
     uid=session.user.id;
     $('auth').style.display='none';$('app').style.display='block';
-    $('who').textContent=session.user.email+' · v7';
+    $('who').textContent=session.user.email+' · v8';
     await load();
   }else{
     uid=null;S={tx:[],targets:[]};
