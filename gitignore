@@ -1,0 +1,27 @@
+# Sistem operasi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Rahasia dan konfigurasi lokal
+.env
+.env.*
+*.pem
+*.key
+
+# Dependensi dan log
+node_modules/
+npm-debug.log*
+*.log
+
+# Netlify
+.netlify/
+
+# Berkas sementara
+*.tmp
+*.bak
